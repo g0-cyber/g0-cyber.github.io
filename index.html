@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Art Stüdyosu</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: #1a1a24;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 15px;
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+            color: #4facfe;
+            text-shadow: 0 0 10px rgba(79, 172, 254, 0.4);
+        }
+
+        .controls {
+            background: #252538;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            max-width: 600px;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        input[type="color"] {
+            -webkit-appearance: none;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            background: none;
+        }
+
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        input[type="color"]::-webkit-color-swatch {
+            border: 2px solid #ffffff33;
+            border-radius: 50%;
+        }
+
+        button {
+            background: #3b3b54;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+
+        button:hover {
+            background: #4a4a6a;
+        }
+
+        button.active {
+            background: #00f2fe;
+            color: #000;
+        }
+
+        .btn-action {
+            background: #4facfe;
+        }
+
+        .btn-action:hover {
+            background: #00f2fe;
+        }
+
+        .btn-danger {
+            background: #ff5252;
+        }
+
+        .btn-danger:hover {
+            background: #ff1744;
+        }
+
+        #canvas-container {
+            background: #12121a;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            max-width: 100%;
+            overflow: auto;
+        }
+
+        #grid {
+            display: grid;
+            gap: 1px;
+            background-color: #2a2a3a;
+            border: 2px solid #3a3a50;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        .pixel {
+            width: 20px;
+            height: 20px;
+            background-color: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.05s;
+        }
+
+        @media (max-width: 480px) {
+            .pixel {
+                width: 14px;
+                height: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎨 Pixel Art Stüdyosu</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="colorPicker">Renk:</label>
+            <input type="color" id="colorPicker" value="#000000">
+        </div>
+
+        <div class="control-group">
+            <button id="drawBtn" class="active">✏️ Kalem</button>
+            <button id="eraseBtn">🧽 Silgi</button>
+        </div>
+
+        <div class="control-group">
+            <label for="gridSize">Boyut:</label>
+            <select id="gridSize" style="padding: 6px; border-radius: 4px; background: #3b3b54; color: white; border: none;">
+                <option value="12">12 x 12</option>
+                <option value="16" selected>16 x 16</option>
+                <option value="24">24 x 24</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <button id="clearBtn" class="btn-danger">🗑️ Temizle</button>
+            <button id="downloadBtn" class="btn-action">💾 İndir (PNG)</button>
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        <div id="grid"></div>
+    </div>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const colorPicker = document.getElementById('colorPicker');
+        const drawBtn = document.getElementById('drawBtn');
+        const eraseBtn = document.getElementById('eraseBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const gridSizeSelect = document.getElementById('gridSize');
+
+        let isDrawing = false;
+        let currentMode = 'draw'; // 'draw' veya 'erase'
+        let size = parseInt(gridSizeSelect.value);
+
+        function createGrid(size) {
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${size}, 1fr)`;
+
+            for (let i = 0; i < size * size; i++) {
+                const pixel = document.createElement('div');
+                pixel.classList.add('pixel');
+                
+                // Mousedown & Touch
+                pixel.addEventListener('mousedown', startDrawing);
+                pixel.addEventListener('mouseover', draw);
+                pixel.addEventListener('touchstart', touchDraw, { passive: false });
+                pixel.addEventListener('touchmove', touchDraw, { passive: false });
+
+                grid.appendChild(pixel);
+            }
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function draw(e) {
+            if (!isDrawing && e.type !== 'mousedown') return;
+            
+            if (currentMode === 'draw') {
+                e.target.style.backgroundColor = colorPicker.value;
+            } else if (currentMode === 'erase') {
+                e.target.style.backgroundColor = '#ffffff';
+            }
+        }
+
+        function touchDraw(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const target = document.elementFromPoint(touch.clientX, touch.clientY);
+            if (target && target.classList.contains('pixel')) {
+                if (currentMode === 'draw') {
+                    target.style.backgroundColor = colorPicker.value;
+                } else if (currentMode === 'erase') {
+                    target.style.backgroundColor = '#ffffff';
+                }
+            }
+        }
+
+        window.addEventListener('mouseup', () => isDrawing = false);
+        window.addEventListener('touchend', () => isDrawing = false);
+
+        // Mod Değiştiriciler
+        drawBtn.addEventListener('click', () => {
+            currentMode = 'draw';
+            drawBtn.classList.add('active');
+            eraseBtn.classList.remove('active');
+        });
+
+        eraseBtn.addEventListener('click', () => {
+            currentMode = 'erase';
+            eraseBtn.classList.add('active');
+            drawBtn.classList.remove('active');
+        });
+
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Tüm tuvali temizlemek istediğinize emin misiniz?')) {
+                const pixels = document.querySelectorAll('.pixel');
+                pixels.forEach(p => p.style.backgroundColor = '#ffffff');
+            }
+        });
+
+        gridSizeSelect.addEventListener('change', (e) => {
+            size = parseInt(e.target.value);
+            createGrid(size);
+        });
+
+        // Pixel Art'ı Resim Olarak İndir
+        downloadBtn.addEventListener('click', () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const scale = 20; // Resim kaliteli indirilsin diye ölçeklendirme
+            
+            canvas.width = size * scale;
+            canvas.height = size * scale;
+
+            const pixels = document.querySelectorAll('.pixel');
+            pixels.forEach((pixel, index) => {
+                const row = Math.floor(index / size);
+                const col = index % size;
+                const color = pixel.style.backgroundColor || '#ffffff';
+
+                ctx.fillStyle = color;
+                ctx.fillRect(col * scale, row * scale, scale, scale);
+            });
+
+            const link = document.createElement('a');
+            link.download = 'pixel-art.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Başlangıç Gridini Oluştur
+        createGrid(size);
+    </script>
+</body>
+</html>
